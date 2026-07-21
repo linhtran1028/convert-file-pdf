@@ -9,16 +9,16 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(
-  express.static(path.join(__dirname, "dist/angular-17-file-upload/browser")),
-);
+const distPath = path.join(__dirname, "dist/angular-17-file-upload/browser");
+
+app.use(express.static(distPath));
 
 app.get("*", (req, res) => {
-  res.sendFile(
-    path.join(__dirname, "dist/angular-17-file-upload/browser/index.html"),
-  );
+  res.sendFile(path.join(distPath, "index.html"));
 });
 
-app.listen(4200, () => {
-  console.log("http://localhost:4200");
+const PORT = process.env.PORT || 4200;
+
+app.listen(PORT, () => {
+  console.log(`Listening on ${PORT}`);
 });
