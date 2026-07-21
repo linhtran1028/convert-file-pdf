@@ -43,6 +43,7 @@ export class FileUploadComponent implements OnInit {
       const converter = new WorkerBrowserConverter({
         ...wasmPaths,
         browserWorkerJs: '/wasm/browser.worker.global.js',
+        onProgress: (info) => console.log(`${info.percent}%: ${info.message}`),
       });
       this.converterReady = converter.initialize().then(() => converter);
     }
@@ -101,10 +102,9 @@ export class FileUploadComponent implements OnInit {
     if (!this.files.length) {
       return;
     }
-    
+    console.log('aaa')
     const filesToUpload: File[] = [];
 
-    // Lần đầu gọi sẽ trả phí khởi tạo (initialize), các lần sau dùng lại instance đã sẵn sàng.
     const tInitStart = performance.now();
     const converter = await this.getConverter();
     const tInitEnd = performance.now();

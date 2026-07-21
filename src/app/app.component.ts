@@ -11,5 +11,5 @@ import { FileUploadComponent } from './components/file-upload/file-upload.compon
   styleUrl: './app.component.css'
 })
 export class AppComponent {
-  title = 'File Upload example';
+  title = 'Upload file example';
 }
