@@ -34,7 +34,7 @@ export class FileUploadComponent implements OnInit {
 
     // Pre-warm converter ngay khi vào màn hình để lần upload đầu tiên
     // không phải đợi initialize(). Fire-and-forget; lỗi sẽ được retry khi user click upload.
-    this.getConverter().catch(err => console.warn('Converter pre-warm failed:', err));
+    // this.getConverter().catch(err => console.warn('Converter pre-warm failed:', err));
   }
 
   private getConverter(): Promise<WorkerBrowserConverter> {
@@ -106,7 +106,16 @@ export class FileUploadComponent implements OnInit {
     const filesToUpload: File[] = [];
 
     const tInitStart = performance.now();
-    const converter = await this.getConverter();
+
+  // Khởi tạo converter 1 lần
+    const wasmPaths = createWasmPaths('/wasm/');
+    const converter = new WorkerBrowserConverter({
+      ...wasmPaths,
+      browserWorkerJs: '/wasm/browser.worker.global.js',
+      onProgress: (info) => console.log(`${info.percent}%: ${info.message}`),
+    });
+
+    await converter.initialize();
     const tInitEnd = performance.now();
 
     const tConvertStart = performance.now();
