@@ -17,7 +17,7 @@
     "@angular/platform-browser": "^17.0.0",
     "@angular/platform-browser-dynamic": "^17.0.0",
     "@angular/router": "^17.0.0",
-    "@matbee/libreoffice-converter": "^2.7.1",
+    "@matbee/libreoffice-converter": "^2.6.0",
     "bootstrap": "^4.6.2",
     "express": "^4.22.2",
     "pdf-lib": "^1.17.1",
