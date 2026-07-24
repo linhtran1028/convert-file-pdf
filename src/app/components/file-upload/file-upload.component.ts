@@ -10,6 +10,12 @@ import {
   createWasmPaths,
 } from '@matbee/libreoffice-converter/browser';
 
+// Module-level cache: sống qua mọi lần mount/unmount của component
+// trong cùng session trình duyệt. Worker pool là resource của tab,
+// không phải của component — không nên phá cache khi Angular destroy component.
+// Singleton đảm bảo chỉ tạo đúng 1 Worker, tránh race tạo instance mới khi pre-warm fail.
+let cachedConverterPromise: Promise<WorkerBrowserConverter> | null = null;
+
 @Component({
   selector: 'app-file-upload',
   standalone: true,
@@ -21,33 +27,47 @@ export class FileUploadComponent implements OnInit {
   files: File[] = [];
   message = '';
   fileInfos?: Observable<any>;
-
-  // Cache converter instance để chỉ trả phí khởi tạo 1 lần duy nhất.
-  // Dùng Promise để tránh race condition khi upload() được gọi liên tục
-  // trong khi lần initialize() trước chưa xong.
-  private converterReady?: Promise<WorkerBrowserConverter>;
+  initError: string | null = null;
 
   constructor(private uploadService: FileUploadService) {}
 
   ngOnInit(): void {
-    // this.fileInfos = this.uploadService.getFiles();
-
     // Pre-warm converter ngay khi vào màn hình để lần upload đầu tiên
     // không phải đợi initialize(). Fire-and-forget; lỗi sẽ được retry khi user click upload.
-    this.getConverter().catch(err => console.warn('Converter pre-warm failed:', err));
+    this.prewarmConverter();
+  }
+
+  private prewarmConverter(): void {
+    this.getConverter().catch(err => {
+      console.warn('[FileUpload] Converter pre-warm failed:', err);
+      this.initError = 'WASM converter chưa sẵn sàng. Upload lần đầu sẽ tự thử lại.';
+    });
   }
 
   private getConverter(): Promise<WorkerBrowserConverter> {
-    if (!this.converterReady) {
-      const wasmPaths = createWasmPaths('/wasm/');
-      const converter = new WorkerBrowserConverter({
-        ...wasmPaths,
-        browserWorkerJs: '/wasm/browser.worker.global.js',
-        onProgress: (info) => console.log(`${info.percent}%: ${info.message}`),
-      });
-      this.converterReady = converter.initialize().then(() => converter);
+    if (cachedConverterPromise) {
+      return cachedConverterPromise;
     }
-    return this.converterReady;
+
+    const wasmPaths = createWasmPaths('/wasm/');
+    const converter = new WorkerBrowserConverter({
+      ...wasmPaths,
+      browserWorkerJs: '/wasm/browser.worker.global.js',
+      onProgress: (info) => console.log(`${info.percent}%: ${info.message}`),
+    });
+
+    cachedConverterPromise = converter
+      .initialize()
+      .then(() => converter)
+      .catch(err => {
+        // Reset cache để lần gọi sau retry được, nhưng KHÔNG giữ promise lỗi.
+        // Promise bị reject không được ai await sẽ được GC,
+        // Worker instance cũ (chưa init xong) sẽ được browser thu dọn.
+        cachedConverterPromise = null;
+        throw err;
+      });
+
+    return cachedConverterPromise;
   }
   
   selectFile(event: Event): void {
@@ -58,8 +78,7 @@ export class FileUploadComponent implements OnInit {
     }
 
     this.files.push(...Array.from(input.files));
-
-    // Cho phép chọn lại cùng một file
+    
     input.value = '';
   }
 
@@ -102,11 +121,22 @@ export class FileUploadComponent implements OnInit {
     if (!this.files.length) {
       return;
     }
-    console.log('aaa')
+
     const filesToUpload: File[] = [];
 
     const tInitStart = performance.now();
-    const converter = await this.getConverter();
+
+    let converter: WorkerBrowserConverter;
+    try {
+      converter = await this.getConverter();
+      // Init thành công (có thể là retry sau pre-warm fail) → clear lỗi trên UI.
+      this.initError = null;
+    } catch (err) {
+      this.message = 'Không thể khởi tạo WASM converter. Vui lòng tải lại trang.';
+      console.error('[FileUpload] Converter init failed:', err);
+      return;
+    }
+
     const tInitEnd = performance.now();
 
     const tConvertStart = performance.now();
@@ -120,13 +150,11 @@ export class FileUploadComponent implements OnInit {
         const inputData = new Uint8Array(
           await file.arrayBuffer()
         );
-
         const result = await converter.convert(
           inputData,
           { outputFormat: 'pdf' },
           file.name
         );
-
         const pdfBytes = new Uint8Array(result.data.byteLength);
         pdfBytes.set(result.data);
 
