@@ -25,6 +25,12 @@
 </div>
 }
 
+@if (initError) {
+<div class="alert alert-warning mt-3" role="alert">
+  {{ initError }}
+</div>
+}
+
 @if (files.length > 0) {
 <div class="card mt-3">
   <div class="card-header">
