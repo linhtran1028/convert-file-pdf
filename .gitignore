@@ -11,6 +11,12 @@
 npm-debug.log
 yarn-error.log
 
+# WASM build outputs (tracked via Git LFS)
+# wasm/*.wasm - tracked by LFS
+# wasm/*.data - tracked by LFS
+wasm/*
+!wasm/.gitkeep
+
 # IDEs and editors
 .idea/
 .project
