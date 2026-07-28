@@ -1,8 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { HttpResponse } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { FileUploadService } from '../../services/file-upload.service';
 import { PDFDocument } from 'pdf-lib';
 
 import {
@@ -24,8 +22,8 @@ export class FileUploadComponent implements OnInit {
 
   // Cache converter instance để chỉ khởi tạo 1 lần duy nhất.
   private converterReady?: Promise<WorkerBrowserConverter>;
-
-  constructor(private uploadService: FileUploadService) {}
+  private initStartTime = 0;
+  private initEndTime = 0;
 
   ngOnInit(): void {
     // Pre-warm converter ngay khi vào màn hình để lần upload đầu tiên
@@ -35,14 +33,27 @@ export class FileUploadComponent implements OnInit {
 
   private getConverter(): Promise<WorkerBrowserConverter> {
     if (!this.converterReady) {
+      this.initStartTime = performance.now();
       const wasmPaths = createWasmPaths('/wasm/');
       const converter = new WorkerBrowserConverter({
         ...wasmPaths,
         browserWorkerJs: '/wasm/browser.worker.global.js',
-        onProgress: (info) => console.log(`${info.percent}%: ${info.message}`),
+        onProgress: (info) => {
+          console.log(`${info.percent}%: ${info.message}`);
+
+          if (info.percent === 100) {
+            this.initEndTime = performance.now();
+
+            console.log(
+              `Initialize completed: ${(this.initEndTime - this.initStartTime).toFixed(2)} ms`
+            );
+          }
+        },
       });
+
       this.converterReady = converter.initialize().then(() => converter);
     }
+
     return this.converterReady;
   }
   
@@ -96,7 +107,6 @@ export class FileUploadComponent implements OnInit {
     if (!this.files.length) {
       return;
     }
-    console.log('aaa')
     const filesToUpload: File[] = [];
 
     const tInitStart = performance.now();
@@ -173,7 +183,6 @@ export class FileUploadComponent implements OnInit {
     const tConvertEnd = performance.now();
 
     console.table({
-      'Initialize': `${(tInitEnd - tInitStart).toFixed(2)} ms`,
       'Convert': `${(tConvertEnd - tConvertStart).toFixed(2)} ms`,
       'Total': `${(tConvertEnd - tInitStart).toFixed(2)} ms`
     });
