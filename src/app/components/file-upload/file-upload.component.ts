@@ -22,16 +22,12 @@ export class FileUploadComponent implements OnInit {
   message = '';
   fileInfos?: Observable<any>;
 
-  // Cache converter instance để chỉ trả phí khởi tạo 1 lần duy nhất.
-  // Dùng Promise để tránh race condition khi upload() được gọi liên tục
-  // trong khi lần initialize() trước chưa xong.
+  // Cache converter instance để chỉ khởi tạo 1 lần duy nhất.
   private converterReady?: Promise<WorkerBrowserConverter>;
 
   constructor(private uploadService: FileUploadService) {}
 
   ngOnInit(): void {
-    // this.fileInfos = this.uploadService.getFiles();
-
     // Pre-warm converter ngay khi vào màn hình để lần upload đầu tiên
     // không phải đợi initialize(). Fire-and-forget; lỗi sẽ được retry khi user click upload.
     this.getConverter().catch(err => console.warn('Converter pre-warm failed:', err));
@@ -84,8 +80,6 @@ export class FileUploadComponent implements OnInit {
     }
 
     const mergedBytes = await mergedPdf.save();
-
-    // Copy sang ArrayBuffer mới
     const output = new Uint8Array(mergedBytes.byteLength);
     output.set(mergedBytes);
 
